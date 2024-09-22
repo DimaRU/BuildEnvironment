@@ -4,22 +4,21 @@ import PackageDescription
 let package = Package(
     name: "BuildEnvironment",
     products: [
-        .executable(name: "BuildEnv", targets: ["BuildEnv"]),
-        .plugin(name: "BuildEnvPlugin", targets: ["BuildEnvPlugin"]),
+        .plugin(name: "BuildEnvFilePlugin", targets: ["BuildEnvFilePlugin"]),
     ],
     targets: [
+        .plugin(
+            name: "BuildEnvFilePlugin",
+            capability: .buildTool(),
+            dependencies: ["BuildEnvFile"]
+        ),
         .executableTarget(
-            name: "BuildEnv"
-            ),
+            name: "BuildEnvFile"
+        ),
         .executableTarget(
             name: "BuildEnvExample",
-            dependencies: ["BuildEnv"],
-            plugins: ["BuildEnvPlugin"]
-        ),
-        .plugin(
-            name: "BuildEnvPlugin",
-            capability: .buildTool(),
-            dependencies: ["BuildEnv"]
+            dependencies: ["BuildEnvFile"],
+            plugins: ["BuildEnvFilePlugin"]
         ),
     ]
 )
