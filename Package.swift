@@ -18,7 +18,6 @@ let package = Package(
         ),
         .executableTarget(
             name: "BuildEnvExample",
-            dependencies: ["BuildEnvFile"],
             plugins: ["BuildEnvFilePlugin"]
         ),
     ]
