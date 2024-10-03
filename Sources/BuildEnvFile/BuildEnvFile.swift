@@ -8,13 +8,22 @@ import Foundation
 @main
 struct GenerateBuildEnvironment {
     static func main() {
-        if CommandLine.argc != 3 {
-            print("usage: \(CommandLine.arguments[0]) env-file swift-file", to: &stderror)
+        guard CommandLine.argc >= 3 else {
+            print("usage: \(CommandLine.arguments[0]) env-file swift-file [-e]", to: &stderror)
             exit(EXIT_FAILURE)
         }
-        
         let envFile = CommandLine.arguments[1]
         let swiftFile = CommandLine.arguments[2]
+        
+        let encode: Bool
+        if CommandLine.argc == 3 {
+            encode = false
+        } else if CommandLine.argc == 4, CommandLine.arguments[3] == "-e" {
+            encode = true
+        } else {
+            print("usage: \(CommandLine.arguments[0]) env-file swift-file [-e]", to: &stderror)
+            exit(EXIT_FAILURE)
+        }
         
         guard FileManager.default.fileExists(atPath: envFile) else {
             print("env file not found: \(envFile)", to: &stderror)
@@ -42,12 +51,18 @@ struct GenerateBuildEnvironment {
         
         var content =
             """
-            public struct BuildEnvironment {
-                init() { fatalError() }
+            // Code generated from .env file 
+            // Don't edit! All changes will be lost.
+            
+            public enum BuildEnvironment {
             
             """
         for (key, value) in envDict {
-            content += "    public static let \(key): String = \"\(value)\"\n"
+            if encode {
+                content += encodedCode(key: key, value: value)
+            } else {
+                content += "    public static let \(key): String = \"\(value)\"\n"
+            }
         }
         content += "}\n"
         
@@ -62,5 +77,31 @@ struct GenerateBuildEnvironment {
             exit(EXIT_FAILURE)
         }
         print("Created file \(swiftFileURL.path)")
+    }
+    
+    static func encodedCode(key: String, value: String) -> String {
+        guard var encrypted = value.data(using: .utf8) else {
+            print("Non-utf8 string value for key \(key)", to: &stderror)
+            exit(EXIT_FAILURE)
+        }
+        var cipher: [UInt8] = []
+        encrypted.indices.forEach {
+            cipher.append(UInt8.random(in: UInt8.min...UInt8.max))
+            encrypted[$0] = encrypted[$0] ^ cipher[$0]
+        }
+        let encryptedText = encrypted.map{ String($0) }.joined(separator: ", ")
+        let cipherText = cipher.map{ String($0) }.joined(separator: ", ")
+        let code = """
+    public static let \(key): String = {
+        let encrypted: [UInt8] = [\(encryptedText), \(cipherText)]
+        let count = encrypted.count / 2
+        return String(unsafeUninitializedCapacity: count) { ptr in
+            (0..<count).forEach { ptr[$0] = encrypted[$0] ^ encrypted[$0 + count] }
+            return count
+        }
+    }()
+
+"""
+        return code
     }
 }

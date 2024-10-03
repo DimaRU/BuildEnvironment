@@ -19,7 +19,7 @@ struct BuildEnvPlugin: BuildToolPlugin {
         let command = Command.buildCommand(
             displayName: "Generating \(outputFile) in \(context.pluginWorkDirectory)",
             executable: try context.tool(named: "BuildEnvFile").path,
-            arguments: [ inputFile,  outputFile ],
+            arguments: [ inputFile,  outputFile, "-e" ],
             inputFiles: [inputFile],
             outputFiles: [outputFile]
         )
@@ -43,7 +43,7 @@ extension BuildEnvPlugin: XcodeBuildToolPlugin {
         let command = Command.buildCommand(
             displayName: "Generating \(outputFile) in \(context.pluginWorkDirectory)",
             executable: try context.tool(named: "BuildEnvFile").path,
-            arguments: [ inputFile,  outputFile ],
+            arguments: [ inputFile,  outputFile, "-e" ],
             inputFiles: [inputFile],
             outputFiles: [outputFile]
         )
