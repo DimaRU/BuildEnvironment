@@ -6,4 +6,6 @@
 import Foundation
 
 let apiKey = BuildEnvironment.apiKey
-print("apiKey =", apiKey)
+print("api key =", apiKey)
+print("home directory = ", BuildEnvironment.homeDir)
+print("user name = ", BuildEnvironment.userName)

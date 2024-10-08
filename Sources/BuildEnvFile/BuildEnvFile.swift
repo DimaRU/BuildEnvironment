@@ -7,61 +7,113 @@ import Foundation
 
 @main
 struct GenerateBuildEnvironment {
+    struct Config {
+        enum Keywords: String, CaseIterable {
+            case name, access, encode
+        }
+        enum AccessLevel: String, CaseIterable {
+            case `public`, `package`, `internal`
+        }
+        var name: String
+        var access: AccessLevel
+        var encode: Bool
+        
+        init() {
+            self.name = "BuildEnvironment"
+            self.access = .package
+            self.encode = false
+        }
+    }
+    
+    struct ParseError: Error {
+        let line: Int
+        let kind: ErrorKind
+        enum ErrorKind {
+            case separator
+            case keyword
+            case at
+            case accessSpec
+            case encodeSpec
+            case keyExist(key: String)
+            case env(key: String)
+        }
+    }
+    
+    
     static func main() {
-        guard CommandLine.argc >= 3 else {
-            print("usage: \(CommandLine.arguments[0]) env-file swift-file [-e]", to: &stderror)
+        guard
+            CommandLine.argc >= 3
+        else {
+            print(
+                """
+                Usage: \(CommandLine.arguments[0])
+                    --output swift-file
+                    --env env-file
+                    --config config-file
+                """,
+                to: &stderror)
             exit(EXIT_FAILURE)
         }
-        let envFile = CommandLine.arguments[1]
-        let swiftFile = CommandLine.arguments[2]
-        
-        let encode: Bool
-        if CommandLine.argc == 3 {
-            encode = false
-        } else if CommandLine.argc == 4, CommandLine.arguments[3] == "-e" {
-            encode = true
-        } else {
-            print("usage: \(CommandLine.arguments[0]) env-file swift-file [-e]", to: &stderror)
+        guard
+            let swiftFile = getStringArg("--output")
+        else {
+            print("Required '--output' argument is missing", to: &stderror)
             exit(EXIT_FAILURE)
         }
-        
-        guard FileManager.default.fileExists(atPath: envFile) else {
-            print("env file not found: \(envFile)", to: &stderror)
+        guard
+            getStringArg("--env") != nil || getStringArg("--config") != nil
+        else {
+            print("'--env' or '--config' argument is missing", to: &stderror)
             exit(EXIT_FAILURE)
         }
-        
-        let env: String
-        do {
-            env = try String.init(contentsOf: URL(fileURLWithPath: envFile), encoding: .utf8)
-        } catch {
-            print("Failed to read \(envFile): \(error)", to: &stderror)
-            exit(EXIT_FAILURE)
-        }
-        
+
         var envDict: [String: String] = [:]
-        let envList = env.split(separator: "\n")
-        for envLine in envList where !envLine.isEmpty && envLine.first != "#" {
-            let keyValue = envLine.split(separator: "=", maxSplits: 1).map({ $0.trimmingCharacters(in: .whitespaces)})
-            guard keyValue.count == 2 else {
-                print("Invalid env line: \(envLine)", to: &stderror)
-                exit(EXIT_FAILURE)
+        var config = Config()
+        var file: String?
+
+        do {
+            file = getStringArg("--config")
+            if let file {
+                let content = try String(contentsOf: URL(fileURLWithPath: file), encoding: .utf8)
+                config = try parceConfig(content: content, envDict: &envDict)
             }
-            envDict[keyValue[0]] = keyValue[1]
+            
+            file = getStringArg("--env")
+            if let file {
+                let content = try String(contentsOf: URL(fileURLWithPath: file), encoding: .utf8)
+                try parceEnv(content: content, envDict: &envDict)
+            }
+        } catch let error as ParseError {
+            let line = error.line + 1
+            let errorMessage = switch error.kind {
+                case .separator: "no '=' or ':' separator"
+                case .keyword: "illegal keyword"
+                case .at: "no $ symbol before env variable"
+                case .accessSpec: "wrong access spec, must be one of " + Config.AccessLevel.allCases.map{$0.rawValue}.joined(separator: ", ")
+                case .encodeSpec: "wrong encode spec, must be yes or no"
+                case .keyExist(key: let key): "key \(key) already exits"
+                case .env(key: let key): "no environment variable \(key)"
+            }
+            print("Error in line \(line) of \(file!):", errorMessage, to: &stderror)
+            exit(EXIT_FAILURE)
+        } catch {
+            print("File \(file!) read error \(error)", to: &stderror)
+            exit(EXIT_FAILURE)
         }
-        
+
         var content =
             """
             // Code generated from .env file 
             // Don't edit! All changes will be lost.
             
-            public enum BuildEnvironment {
+            public enum \(config.name) {
             
             """
         for (key, value) in envDict {
-            if encode {
+            if config.encode {
                 content += encodedCode(key: key, value: value)
             } else {
-                content += "    public static let \(key): String = \"\(value)\"\n"
+                content += "    \(config.access.rawValue) static let \(key): String = \"\(value)\"\n"
             }
         }
         content += "}\n"
@@ -73,7 +125,7 @@ struct GenerateBuildEnvironment {
                               atomically: false,
                               encoding: .utf8)
         } catch  {
-            print("Write error \(swiftFileURL.absoluteString) \(error.localizedDescription)", to: &stderror)
+            print("Write error \(swiftFileURL.path) \(error.localizedDescription)", to: &stderror)
             exit(EXIT_FAILURE)
         }
         print("Created file \(swiftFileURL.path)")
@@ -103,5 +155,65 @@ struct GenerateBuildEnvironment {
 
 """
         return code
+    }
+    
+    static func parceEnv(content: String, envDict: inout [String: String]) throws {
+        let lines = content
+            .split(separator: "\n")
+            .map{ $0.trimmingCharacters(in: .whitespaces)}
+        for i in lines.indices where !lines[i].isEmpty && lines[i].first != "#" {
+            let keyValue = lines[i].split(separator: "=", maxSplits: 1).map({ $0.trimmingCharacters(in: .whitespaces)})
+            guard keyValue.count == 2 else {
+                throw ParseError(line: i, kind: .separator)
+            }
+            envDict[keyValue[0]] = keyValue[1]
+        }
+    }
+    
+    static func parceConfig(content: String, envDict: inout [String: String]) throws -> Config {
+        var config = Config()
+
+        let lines = content
+            .split(separator: "\n")
+            .map{ $0.trimmingCharacters(in: .whitespaces)}
+        
+        for i in lines.indices where !lines[i].isEmpty && lines[i].first != "#" {
+            print(i+1, lines[i])
+            if lines[i].contains("=") {
+                let keyValue = lines[i].split(separator: "=", maxSplits: 1).map({ $0.trimmingCharacters(in: .whitespaces)})
+                guard keyValue[1].first == "$" else {
+                    throw ParseError(line: i, kind: .at)
+                }
+                let env = String(keyValue[1].dropFirst())
+                guard let value = ProcessInfo.processInfo.environment[env] else {
+                    throw ParseError(line: i, kind: .env(key: env))
+                }
+                guard envDict.append(key: keyValue[0], value: value) else {
+                    throw ParseError(line: i, kind: .keyExist(key: keyValue[0]))
+                }
+            } else if lines[i].contains(":") {
+                let keyValue = lines[i].split(separator: ":", maxSplits: 1).map({ $0.trimmingCharacters(in: .whitespaces)})
+                guard let keyword = Config.Keywords(rawValue: keyValue[0]) else {
+                    throw ParseError(line: i, kind: .keyword)
+                }
+                switch keyword {
+                case .name:
+                    config.name = keyValue[1]
+                case .access:
+                    guard let access = Config.AccessLevel(rawValue: keyValue[1]) else {
+                        throw ParseError(line: i, kind: .accessSpec)
+                    }
+                    config.access = access
+                case .encode:
+                    guard ["yes", "no"].contains(keyValue[1]) else {
+                        throw ParseError(line: i, kind: .encodeSpec)
+                    }
+                    config.encode = keyValue[1] == "yes"
+                }
+            } else {
+                throw ParseError(line: i, kind: .separator)
+            }
+        }
+        return config
     }
 }
