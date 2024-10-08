@@ -50,18 +50,35 @@ import XcodeProjectPlugin
 extension BuildEnvPlugin: XcodeBuildToolPlugin {
     
     func createBuildCommands(context: XcodePluginContext, target: XcodeTarget) throws -> [Command] {
-        let inputFile = context.xcodeProject.directory.appending(".env")
-        guard FileManager.default.fileExists(atPath: inputFile.string) else {
-            Diagnostics.warning("No \(inputFile) file found.")
+        let envFile = context.xcodeProject.directory.appending(".env")
+        let configFile = context.xcodeProject.directory.appending("buildenv.config")
+        let outputFile = context.pluginWorkDirectory.appending("BuildEnvironment.swift")
+        var arguments: [String] = []
+        var inputFiles: [Path] = []
+
+        if FileManager.default.fileExists(atPath: envFile.string) {
+            inputFiles.append(envFile)
+            arguments.append("--env")
+            arguments.append(envFile.string)
+        }
+        if FileManager.default.fileExists(atPath: configFile.string) {
+            inputFiles.append(configFile)
+            arguments.append("--config")
+            arguments.append(configFile.string)
+        }
+        
+        if inputFiles.isEmpty {
+            Diagnostics.warning("Both \(configFile) and \(envFile) is't found.")
             return []
         }
-        let outputFile = context.pluginWorkDirectory.appending("BuildEnvironment.swift")
+        arguments.append("--output")
+        arguments.append(outputFile.string)
         
         let command = Command.buildCommand(
             displayName: "Generating \(outputFile) in \(context.pluginWorkDirectory)",
-            executable: try context.tool(named: "BuildEnvFile").path,
-            arguments: [ inputFile,  outputFile, "-e" ],
-            inputFiles: [inputFile],
+            executable: try context.tool(named: "BuildEnvGenerator").path,
+            arguments: arguments,
+            inputFiles: inputFiles,
             outputFiles: [outputFile]
         )
         return [command]
