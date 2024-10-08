@@ -5,20 +5,20 @@ let package = Package(
     name: "BuildEnvironment",
     platforms: [.macOS(.v11), .iOS(.v14), .watchOS(.v7), .tvOS(.v14)],
     products: [
-        .plugin(name: "BuildEnvFilePlugin", targets: ["BuildEnvFilePlugin"]),
+        .plugin(name: "BuildEnvPlugin", targets: ["BuildEnvPlugin"]),
     ],
     targets: [
         .plugin(
-            name: "BuildEnvFilePlugin",
+            name: "BuildEnvPlugin",
             capability: .buildTool(),
-            dependencies: ["BuildEnvFile"]
+            dependencies: ["BuildEnvGenerator"]
         ),
         .executableTarget(
-            name: "BuildEnvFile"
+            name: "BuildEnvGenerator"
         ),
         .executableTarget(
             name: "BuildEnvExample",
-            plugins: ["BuildEnvFilePlugin"]
+            plugins: ["BuildEnvPlugin"]
         ),
     ]
 )

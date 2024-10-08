@@ -1,12 +1,12 @@
 /////
-////  BuildEnvFile.swift
+////  BuildEnvGenerator.swift
 ///   Copyright © 2024 Dmitriy Borovikov. All rights reserved.
 //
 
 import Foundation
 
 @main
-struct GenerateBuildEnvironment {
+struct BuildEnvGenerator {
     struct Config {
         enum Keywords: String, CaseIterable {
             case name, access, encode

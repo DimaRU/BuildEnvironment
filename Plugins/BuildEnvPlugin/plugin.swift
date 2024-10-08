@@ -35,7 +35,7 @@ struct BuildEnvPlugin: BuildToolPlugin {
         
         let command = Command.buildCommand(
             displayName: "Generating \(outputFile) in \(context.pluginWorkDirectory)",
-            executable: try context.tool(named: "BuildEnvFile").path,
+            executable: try context.tool(named: "BuildEnvGenerator").path,
             arguments: arguments,
             inputFiles: inputFiles,
             outputFiles: [outputFile]
