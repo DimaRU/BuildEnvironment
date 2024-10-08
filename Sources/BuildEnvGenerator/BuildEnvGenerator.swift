@@ -184,7 +184,6 @@ struct BuildEnvGenerator {
             .map{ $0.trimmingCharacters(in: .whitespaces)}
         
         for i in lines.indices where !lines[i].isEmpty && lines[i].first != "#" {
-            print(i+1, lines[i])
             if lines[i].contains("=") {
                 let keyValue = lines[i].split(separator: "=", maxSplits: 1).map({ $0.trimmingCharacters(in: .whitespaces)})
                 guard keyValue[1].first == "$" else {
