@@ -13,6 +13,12 @@ struct BuildEnvGenerator {
         }
         enum AccessLevel: String, CaseIterable {
             case `public`, `package`, `internal`
+            var string: String {
+                switch self {
+                case .internal: ""
+                default: rawValue + " "
+                }
+            }
         }
         var name: String
         var access: AccessLevel
@@ -20,7 +26,7 @@ struct BuildEnvGenerator {
         
         init() {
             self.name = "BuildEnvironment"
-            self.access = .package
+            self.access = .public
             self.encode = false
         }
     }
@@ -66,11 +72,11 @@ struct BuildEnvGenerator {
             print("'--env' or '--config' argument is missing", to: &stderror)
             exit(EXIT_FAILURE)
         }
-
+        
         var envDict: [String: String] = [:]
         var config = Config()
         var file: String?
-
+        
         do {
             file = getStringArg("--config")
             if let file {
@@ -86,13 +92,13 @@ struct BuildEnvGenerator {
         } catch let error as ParseError {
             let line = error.line + 1
             let errorMessage = switch error.kind {
-                case .separator: "no '=' or ':' separator"
-                case .keyword: "illegal keyword"
-                case .at: "no $ symbol before env variable"
-                case .accessSpec: "wrong access spec, must be one of " + Config.AccessLevel.allCases.map{$0.rawValue}.joined(separator: ", ")
-                case .encodeSpec: "wrong encode spec, must be yes or no"
-                case .keyExist(key: let key): "key \(key) already exits"
-                case .env(key: let key): "no environment variable \(key)"
+            case .separator: "no '=' or ':' separator"
+            case .keyword: "illegal keyword"
+            case .at: "no $ symbol before env variable"
+            case .accessSpec: "wrong access spec, must be one of " + Config.AccessLevel.allCases.map{$0.rawValue}.joined(separator: ", ")
+            case .encodeSpec: "wrong encode spec, must be yes or no"
+            case .keyExist(key: let key): "key \(key) already exits"
+            case .env(key: let key): "no environment variable \(key)"
             }
             print("Error in line \(line) of \(file!):", errorMessage, to: &stderror)
             exit(EXIT_FAILURE)
@@ -100,20 +106,20 @@ struct BuildEnvGenerator {
             print("File \(file!) read error \(error)", to: &stderror)
             exit(EXIT_FAILURE)
         }
-
+        
         var content =
             """
             // Code generated from .env file 
             // Don't edit! All changes will be lost.
             
-            public enum \(config.name) {
+            \(config.access.string)enum \(config.name) {
             
             """
         for (key, value) in envDict {
             if config.encode {
-                content += encodedCode(key: key, value: value)
+                content += encodedCode(key: key, value: value, config: config)
             } else {
-                content += "    \(config.access.rawValue) static let \(key): String = \"\(value)\"\n"
+                content += "    \(config.access.string)static let \(key): String = \"\(value)\"\n"
             }
         }
         content += "}\n"
@@ -131,7 +137,7 @@ struct BuildEnvGenerator {
         print("Created file \(swiftFileURL.path)")
     }
     
-    static func encodedCode(key: String, value: String) -> String {
+    static func encodedCode(key: String, value: String, config: Config) -> String {
         guard var encrypted = value.data(using: .utf8) else {
             print("Non-utf8 string value for key \(key)", to: &stderror)
             exit(EXIT_FAILURE)
@@ -144,7 +150,7 @@ struct BuildEnvGenerator {
         let encryptedText = encrypted.map{ String($0) }.joined(separator: ", ")
         let cipherText = cipher.map{ String($0) }.joined(separator: ", ")
         let code = """
-    public static let \(key): String = {
+    \(config.access.string)static let \(key): String = {
         let encrypted: [UInt8] = [\(encryptedText), \(cipherText)]
         let count = encrypted.count / 2
         return String(unsafeUninitializedCapacity: count) { ptr in
@@ -172,7 +178,7 @@ struct BuildEnvGenerator {
     
     static func parceConfig(content: String, envDict: inout [String: String]) throws -> Config {
         var config = Config()
-
+        
         let lines = content
             .split(separator: "\n")
             .map{ $0.trimmingCharacters(in: .whitespaces)}
