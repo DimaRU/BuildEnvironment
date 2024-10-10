@@ -42,6 +42,7 @@ struct BuildEnvGenerator {
             case encodeSpec
             case keyExist(key: String)
             case env(key: String)
+            case enclose
         }
     }
     
@@ -99,6 +100,7 @@ struct BuildEnvGenerator {
             case .encodeSpec: "wrong encode spec, must be yes or no"
             case .keyExist(key: let key): "key \(key) already exits"
             case .env(key: let key): "no environment variable \(key)"
+            case .enclose: "string must be surrounded by double quotation marks (\")"
             }
             print("Error in line \(line) of \(file!):", errorMessage, to: &stderror)
             exit(EXIT_FAILURE)
@@ -172,7 +174,11 @@ struct BuildEnvGenerator {
             guard keyValue.count == 2 else {
                 throw ParseError(line: i, kind: .separator)
             }
-            envDict[keyValue[0]] = keyValue[1]
+            let value = keyValue[1]
+            guard value.first == "\"", value.last == "\"" else {
+                throw ParseError(line: i, kind: .enclose)
+            }
+            envDict[keyValue[0]] = String(value.dropFirst().dropLast())
         }
     }
     
