@@ -132,6 +132,7 @@ enum BuildEnvironment {
 ## Sample project:
 
 - Clone current repository
+- Enter `BuildEnvironment` directory
 - Run: `swift run BuildEnvExample`
 
 ## Contributing
