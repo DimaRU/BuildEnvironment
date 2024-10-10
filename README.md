@@ -14,9 +14,8 @@
 
 The BuildEvironment project lets you store your keys and secrets away from your repository. Secrets can be stored in the `.env` file or in environment variables. Simple lightweight and functional solution, platform agnostic.
 
-## Getting Started
 
-### Usage
+## Usage
 
 ### With Swift package :
 
@@ -131,9 +130,9 @@ enum BuildEnvironment {
 
 ## Sample project:
 
-- Clone current repository
-- Enter `BuildEnvironment` directory
-- Run: `swift run BuildEnvExample`
+- Clone the current repository
+- Enter the `BuildEnvironment` directory
+- Execute: `swift run BuildEnvExample`
 
 ## Contributing
 
