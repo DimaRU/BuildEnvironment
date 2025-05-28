@@ -118,7 +118,7 @@ struct BuildEnvGenerator {
             
             """
         for (key, value) in envDict {
-            if config.encode {
+            if config.encode && !value.isEmpty {
                 content += encodedCode(key: key, value: value, config: config)
             } else {
                 content += "    \(config.access.string)static let \(key): String = \"\(value)\"\n"
