@@ -195,9 +195,18 @@ struct BuildEnvGenerator {
                 guard keyValue[1].first == "$" else {
                     throw ParseError(line: i, kind: .at)
                 }
-                let env = String(keyValue[1].dropFirst())
+                var env = String(keyValue[1].dropFirst())
+                var optional = false
+                if env.last == "?" {
+                    env.removeLast()
+                    optional = true
+                }
                 guard let value = ProcessInfo.processInfo.environment[env] else {
-                    throw ParseError(line: i, kind: .env(key: env))
+                    if optional {
+                        continue
+                    } else {
+                        throw ParseError(line: i, kind: .env(key: env))
+                    }
                 }
                 guard envDict.append(key: keyValue[0], value: value) else {
                     throw ParseError(line: i, kind: .keyExist(key: keyValue[0]))

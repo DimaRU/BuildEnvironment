@@ -91,8 +91,10 @@ encode: yes
 
 # Environment variable list.
 # Format: swift_variable_name=$environment_variable_name
+# Environment varibles ended in ? are optional, no code or warnings are generated. 
 userName= $USER
 homeDir= $HOME
+optional= $OPTIONAL?
 ```
 Generated code:
 
